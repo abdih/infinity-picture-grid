@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, Ref, ref } from 'vue';
+import { computed, onMounted, onUnmounted, Ref, ref } from 'vue';
 import {
   feedBottomInvisibleFromVisible,
   feedDownFromTopInvisible,
@@ -112,7 +112,25 @@ async function handleScrollDown(): Promise<void> {
     });
   };
 
-  return addScrollHandling(initiateNewHandling);
+  const initiateNewHandlingWithGuaranteedLoadingIndicatorTermination = () => {
+    return initiateNewHandling().finally(() => {
+      // Want a different loading indicator at the initial render.
+      // Furthermore, don't want to remove the loading indicator until we're
+      // sure there's content to be shown. Said differently, we want to
+      // leverage the synergy of the initial loading indicator right up until
+      // we're ready to show the user something.
+      //
+      // Not using nextTick because that's unnecessary. Furthermore, it adds the
+      // risk of blocking the rendering of the grid.
+      if (!haveProcessedInitialRetrieval.value) {
+        haveProcessedInitialRetrieval.value = true;
+      }
+    });
+  };
+
+  return addScrollHandling(
+    initiateNewHandlingWithGuaranteedLoadingIndicatorTermination,
+  );
 }
 
 async function handleScrollUp(): Promise<void> {
@@ -171,6 +189,14 @@ function computeStyle({
   }
   return style;
 }
+
+// Page-level loading indicator-related code (Start)
+const haveProcessedInitialRetrieval: Ref<boolean> = ref(false);
+
+const hasServerStatedNoMoreSubsequentBatches = computed(() => {
+  return afterToken.value === null;
+});
+// Page-level loading indicator-related code (Finish)
 </script>
 <template>
   <div
@@ -189,4 +215,37 @@ function computeStyle({
       />
     </div>
   </div>
+  <template v-if="haveProcessedInitialRetrieval">
+    <div
+      style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        align-content: center;
+        height: 45px;
+        width: 100%;
+      "
+    >
+      <v-progress-circular
+        v-if="!hasServerStatedNoMoreSubsequentBatches"
+        indeterminate
+        width="1"
+      />
+      <span v-else>There are no more images.</span>
+    </div>
+  </template>
+  <template v-else>
+    <div
+      style="
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        align-content: center;
+        height: 100vh;
+        width: 100vw;
+      "
+    >
+      <v-progress-circular indeterminate width="1" />
+    </div>
+  </template>
 </template>
