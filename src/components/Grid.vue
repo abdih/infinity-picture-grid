@@ -1,5 +1,15 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, Ref, ref } from 'vue';
+import { clone2DArrayNaive } from '@/utils/array';
+import {
+  computed,
+  nextTick,
+  onUnmounted,
+  ref,
+  Ref,
+  watch,
+  WatchStopHandle,
+} from 'vue';
+import { debounce } from 'lodash';
 import {
   feedBottomInvisibleFromVisible,
   feedDownFromTopInvisible,
@@ -8,10 +18,12 @@ import {
   GridItemData,
   itemBottom,
   placeNewImagesWithoutVirtualization,
+  updateGridColumnDimensions,
 } from '@/utils/grid';
-import { debounce } from 'lodash';
-import { getNextBatch } from '@/api-clients/image';
-import { clone2DArrayNaive } from '@/utils/array';
+import { getNextBatch, NextBatchImageData } from '@/api-clients/image';
+import { useDevicePixelRatio } from '@/composables/dpr';
+import { useDisplay } from 'vuetify';
+import { computeViewportBottom } from '@/utils/viewport';
 
 let topInvisibleColumns: Array<Array<GridItemData>> = [];
 let bottomInvisibleColumns: Array<Array<GridItemData>> = [];
@@ -24,7 +36,7 @@ let previousScrollY: number = 0;
 
 const afterToken: Ref<number | null | undefined> = ref(undefined);
 
-let scrollHandlingChain = Promise.resolve();
+let scrollHandlingChain: Promise<void>;
 
 function handleScroll(_event: Event): void {
   const currentScrollY = window.scrollY;
@@ -39,23 +51,6 @@ function handleScroll(_event: Event): void {
 }
 
 const debouncedHandleScroll = debounce(handleScroll, 50);
-
-onMounted(async () => {
-  const columnCount = 3;
-
-  const blankColumns = () => Array.from(Array(columnCount)).map(() => []);
-  visibleColumns.value.push(...blankColumns());
-  topInvisibleColumns.push(...blankColumns());
-  bottomInvisibleColumns.push(...blankColumns());
-
-  // Column width is: [full visual viewport's width - (gap in between columns + padding on either side)] / 3
-  columnWidth.value =
-    (window.innerWidth - ((columnCount - 1) * GapAmount + GapAmount * 2)) / 3;
-
-  await handleScrollDown();
-
-  addEventListener('scroll', debouncedHandleScroll);
-});
 
 onUnmounted(() => {
   removeEventListener('scroll', debouncedHandleScroll);
@@ -77,19 +72,23 @@ async function handleScrollDown(): Promise<void> {
         | undefined
         | Awaited<ReturnType<typeof getNextBatch>>;
 
-      if (afterToken.value !== null) {
-        nextBatchResponseDto = await getNextBatch(afterToken.value);
+      const shouldPlaceImages = afterToken.value !== null;
+      if (shouldPlaceImages) {
+        let imagesData: Array<NextBatchImageData>;
+
+        // I.e., afterToken.value !== null
+        nextBatchResponseDto = await getNextBatch(afterToken.value!);
+
+        imagesData = nextBatchResponseDto.data;
 
         // Add the images to the grid
         await placeNewImagesWithoutVirtualization({
           bottomInvisibleColumns,
           visibleColumns: visibleColumns.value,
-          imagesData: nextBatchResponseDto.data,
+          imagesData,
           GapAmount,
           columnWidth: columnWidth.value!,
         });
-
-        afterToken.value = nextBatchResponseDto.afterToken;
       }
 
       // Virtualize.
@@ -99,14 +98,23 @@ async function handleScrollDown(): Promise<void> {
       feedTopInvisibleFromVisible({
         updatedVisibleColumns,
         topInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
       });
       feedUpFromBottomInvisible({
         updatedVisibleColumns,
         topInvisibleColumns,
         bottomInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
       });
 
       visibleColumns.value = updatedVisibleColumns;
+      // Setting the afterToken here because if we do it earlier, when the
+      // afterToken is such that it indicates there's no more image for the
+      // server to provide, that message is shown at the bottom and doesn't
+      // flash before the penultimate batch gets appended.
+      if (nextBatchResponseDto) {
+        afterToken.value = nextBatchResponseDto.afterToken;
+      }
 
       resolve();
     });
@@ -143,11 +151,13 @@ async function handleScrollUp(): Promise<void> {
       feedBottomInvisibleFromVisible({
         updatedVisibleColumns,
         bottomInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
       });
       feedDownFromTopInvisible({
         updatedVisibleColumns,
         topInvisibleColumns,
         bottomInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
       });
 
       visibleColumns.value = updatedVisibleColumns;
@@ -197,6 +207,146 @@ const hasServerStatedNoMoreSubsequentBatches = computed(() => {
   return afterToken.value === null;
 });
 // Page-level loading indicator-related code (Finish)
+
+// Additional code for handling page resizing (Start)
+const {
+  name: breakpointName,
+  height: visualViewportHeight,
+  width: visualViewportWidth,
+  thresholds,
+} = useDisplay();
+
+const { devicePixelRatio } = useDevicePixelRatio();
+
+let visualViewportHandlingChain = Promise.resolve();
+
+const processVisualViewportChanges = async () => {
+  console.log(
+    `visualViewportWidth.value: ${visualViewportWidth.value}; visualViewportHeight.value: ${visualViewportHeight.value}; breakpointName.value: ${breakpointName.value}; devicePixelRatio.value: ${devicePixelRatio.value}`,
+    visualViewportWidth.value,
+  );
+  async function handleVisualViewportChanges() {
+    removeEventListener('scroll', debouncedHandleScroll);
+
+    // Initialize
+    const { columnCount } = updateGridColumnDimensions({
+      columnWidth,
+      visualViewportWidth: visualViewportWidth.value,
+      GapAmount,
+      breakpointName: breakpointName.value,
+      thresholds: thresholds.value,
+    });
+
+    haveProcessedInitialRetrieval.value = false;
+    topInvisibleColumns = [];
+    bottomInvisibleColumns = [];
+    visibleColumns.value = [];
+    previousScrollY = 0;
+    scrollHandlingChain = Promise.resolve();
+    afterToken.value = undefined;
+
+    // Initialize further
+    const blankColumns = () => Array.from(Array(columnCount)).map(() => []);
+    visibleColumns.value.push(...blankColumns());
+    topInvisibleColumns.push(...blankColumns());
+    bottomInvisibleColumns.push(...blankColumns());
+
+    setupWatchEnsureVisibleColumnsFilled();
+
+    await handleScrollDown();
+
+    addEventListener('scroll', debouncedHandleScroll);
+  }
+
+  // Doing this out of paranoia around being in a corrupt state otherwise due
+  // to race conditions. Investigate optimizing this if it becomes a
+  // bottleneck.
+  //
+  // TODO: Ensure errors are properly handled.
+  visualViewportHandlingChain = visualViewportHandlingChain.then(async () => {
+    // We want to ensure we're awaiting the last scheduled scroll handling. To
+    // do so, we want to:
+    //   1. Stop the watcher from scheduling more handling.
+    //   2. Ensure the watcher's handling is invoked in the case it's triggered
+    //   before we await the chain of scroll handling.
+    //     - When handleScrollDown modifies visibleColumns and triggers the
+    //     watcher, the handling of the watcher, at least sometimes, doesn't
+    //     get invoked by the time we're at this point.
+
+    // (1)
+    if (unwatchEnsureVisibleColumnsFilled) {
+      unwatchEnsureVisibleColumnsFilled();
+    }
+
+    // (2)
+    await nextTick();
+
+    await scrollHandlingChain;
+    return handleVisualViewportChanges();
+  });
+};
+
+const debouncedProcessVisualViewportChanges = debounce(
+  processVisualViewportChanges,
+  250,
+);
+
+// It appears that this watcher's invoked twice subsequently when the user
+// zooms in: once for a change in the DPR and another for the change in the
+// visual viewport's width. I tried to debounce the callback, but that appears
+// to get rid of the Watcher's functionality entirely.
+//
+// TODO: Reduce duplicate invocations.
+
+// Can't use watchEffect because we also want to watch for changes in the visual
+// viewport's height and this reactive dependency (i.e.,
+// visualViewportHeight.value) isn't used in the callback. (E.g.,
+// although computeViewportBottom is referenced within this callback,
+// computeViewportBottom's usage of window.innerHeight is insufficient.)
+//
+// Using debounce because without it, the chain of handlers can get very long
+// and drastically slow the page.
+watch(
+  [visualViewportWidth, visualViewportHeight, devicePixelRatio],
+  debouncedProcessVisualViewportChanges,
+  {
+    immediate: true,
+  },
+);
+
+let unwatchEnsureVisibleColumnsFilled: WatchStopHandle | undefined;
+
+function setupWatchEnsureVisibleColumnsFilled() {
+  unwatchEnsureVisibleColumnsFilled = watch(
+    visibleColumns,
+    (newVisibleColumns, _oldVisibleColumns) => {
+      const isSomeColumnUnfilled = newVisibleColumns.some((column) => {
+        if (column.length === 0) {
+          return true;
+        }
+
+        const canColumnHandleOneMoreItem =
+          computeViewportBottom(visualViewportHeight.value!) -
+            (column.at(-1)!.top + column.at(-1)!.height) >
+          GapAmount;
+
+        if (canColumnHandleOneMoreItem) {
+          return true;
+        }
+
+        return false;
+      });
+
+      if (
+        isSomeColumnUnfilled &&
+        !hasServerStatedNoMoreSubsequentBatches.value
+      ) {
+        handleScrollDown();
+      }
+    },
+  );
+}
+// Additional code for handling page resizing (Finish)
 </script>
 <template>
   <div
@@ -211,7 +361,7 @@ const hasServerStatedNoMoreSubsequentBatches = computed(() => {
         :key="imageData.src"
         v-for="(imageData, imageIndex) in column"
         :src="imageData.src"
-        :style="computeStyle({ imageData, imageIndex, columnIndex })"
+        :imgStyle="computeStyle({ imageData, imageIndex, columnIndex })"
       />
     </div>
   </div>

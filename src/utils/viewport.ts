@@ -1,5 +1,5 @@
-export function computeViewportBottom(): number {
-  return window.scrollY + window.innerHeight;
+export function computeViewportBottom(visualViewportHeight: number): number {
+  return window.scrollY + visualViewportHeight;
 }
 
 export function isWithinViewport({

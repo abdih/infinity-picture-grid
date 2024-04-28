@@ -3,7 +3,10 @@ import { computed, ref } from "vue";
 
 export interface Props {
   src: string;
-  style: Record<string, string>;
+  // Avoiding `style` because don't currently have the intention for it to
+  // ever automatically get applied to the root element of this component and
+  // I'm worried that since `class` does this, so will `style`.
+  imgStyle: Record<string, string>;
 }
 const props = defineProps<Props>();
 
@@ -13,37 +16,21 @@ function handleImageLoaded() {
   isLoading.value = false;
 }
 
-const imageStyle = computed(() => {
-  return { ...props.style, display: isLoading.value ? "none" : "unset" };
+const imgStyleFull = computed(() => {
+  return { ...props.imgStyle, display: isLoading.value ? "none" : "unset" };
 });
 </script>
 <template>
-  <div
-    :style="{
-      ...props.style,
-      display: 'flex',
-      justifyContent: 'center',
-      'align-items': 'center',
-      'align-content': 'center',
-    }"
+  <v-skeleton-loader
     v-if="isLoading"
-  >
-    <v-skeleton-loader
-      min-height="100%"
-      min-width="100%"
-      type="image"
-      color="grey"
-    />
-  </div>
-  <img
-    ref="imageElement"
-    @load="handleImageLoaded"
-    :src="props.src"
-    :style="imageStyle"
+    :style="props.imgStyle"
+    type="image"
+    color="grey"
   />
+  <img @load="handleImageLoaded" :src="props.src" :style="imgStyleFull" />
 </template>
 <style lang="scss" scoped>
 :deep(.v-skeleton-loader__image) {
-  height: v-bind("$props.style.height");
+  height: v-bind("$props.imgStyle.height");
 }
 </style>
