@@ -6,5 +6,8 @@
 export {}
 
 declare module 'vue' {
-  export interface GlobalComponents {}
+  export interface GlobalComponents {
+    Grid: typeof import('./src/components/Grid.vue')['default']
+    Image: typeof import('./src/components/Image.vue')['default']
+  }
 }

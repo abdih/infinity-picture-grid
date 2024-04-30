@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <span>Grid</span>
+      <Grid />
     </v-main>
   </v-app>
 </template>
