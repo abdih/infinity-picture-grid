@@ -181,7 +181,6 @@ export function feedBottomInvisibleFromVisible({
   updatedVisibleColumns: Array<Array<GridItemData>>;
   visualViewportHeight: number;
 }): void {
-  const viewportTop = window.scrollY;
   const viewportBottom = computeViewportBottom(visualViewportHeight);
 
   for (
@@ -196,14 +195,7 @@ export function feedBottomInvisibleFromVisible({
         break;
       }
 
-      if (
-        !isWithinViewport({
-          viewportTop,
-          viewportBottom,
-          candidateTop: candidate.top,
-          candidateHeight: candidate.height,
-        })
-      ) {
+      if (candidate.top > viewportBottom) {
         const toMove = updatedVisibleColumns[columnIndex].pop();
         bottomInvisibleColumns[columnIndex].unshift(toMove!);
       } else {
@@ -290,14 +282,11 @@ export function feedUpFromBottomInvisible({
 export function feedTopInvisibleFromVisible({
   updatedVisibleColumns,
   topInvisibleColumns,
-  visualViewportHeight,
 }: {
   updatedVisibleColumns: Array<Array<GridItemData>>;
   topInvisibleColumns: Array<Array<GridItemData>>;
-  visualViewportHeight: number;
 }): void {
   const viewportTop = window.scrollY;
-  const viewportBottom = computeViewportBottom(visualViewportHeight);
 
   for (
     let columnIndex = 0;
@@ -311,14 +300,7 @@ export function feedTopInvisibleFromVisible({
         break;
       }
 
-      if (
-        !isWithinViewport({
-          viewportTop,
-          viewportBottom,
-          candidateTop: candidate.top,
-          candidateHeight: candidate.height,
-        })
-      ) {
+      if (itemBottom(candidate) < viewportTop) {
         const toAdd = updatedVisibleColumns[columnIndex].shift();
         topInvisibleColumns[columnIndex].push(toAdd!);
       } else {
@@ -452,4 +434,109 @@ export function updateGridColumnDimensions({
   return {
     columnCount: columnCountForDesiredColumnWidth,
   };
+}
+
+export function ensureVirtualizationBuffer({
+  updatedVisibleColumns,
+  topInvisibleColumns,
+  bottomInvisibleColumns,
+  buffer,
+  visualViewportHeight,
+}: {
+  updatedVisibleColumns: Array<Array<GridItemData>>;
+  topInvisibleColumns: Array<Array<GridItemData>>;
+  bottomInvisibleColumns: Array<Array<GridItemData>>;
+  buffer: number;
+  visualViewportHeight: number;
+}): void {
+  const viewportTop = window.scrollY;
+  const viewportBottom = computeViewportBottom(visualViewportHeight);
+
+  // Add buffer to the top
+  for (
+    let columnIndex = 0;
+    columnIndex < updatedVisibleColumns.length;
+    columnIndex++
+  ) {
+    // Determine how many buffers are on the top already
+    const firstNotEntirelyAboveVisualViewportCount = updatedVisibleColumns[
+      columnIndex
+    ]!.findIndex((candidate) => {
+      return itemBottom(candidate) >= viewportTop;
+    });
+
+    // -1 indicates that all of the items are entirely after viewportBottom, and
+    // therefore, they're all buffers.
+    //
+    // I haven't seen this case ever occur, including in unit testing. But, I've
+    // seen the mirrored version occur; more details in the comment above
+    // `firstNotEntirelyBelowVisualViewportCount` down below in this function.
+    const currentBuffer =
+      firstNotEntirelyAboveVisualViewportCount === -1
+        ? updatedVisibleColumns[columnIndex].length
+        : firstNotEntirelyAboveVisualViewportCount;
+
+    if (currentBuffer >= buffer) {
+      if (currentBuffer > buffer) {
+        console.warn(
+          `Encountered a currentBuffer (${currentBuffer}) larger than buffer (${buffer}) when adding top buffer for columnIndex (${columnIndex}). (If you're running a unit test, this is probably due to not mocking the window.scrollY properly, specifically not setting it low (i.e., closer to the top) enough.)`,
+        );
+      }
+      continue;
+    }
+
+    const remainingBuffer = buffer - currentBuffer;
+
+    const toBeMoved = topInvisibleColumns[columnIndex].splice(
+      Math.max(topInvisibleColumns[columnIndex].length - remainingBuffer, 0),
+      Math.min(topInvisibleColumns[columnIndex].length, remainingBuffer),
+    );
+    updatedVisibleColumns[columnIndex].unshift(...toBeMoved);
+  }
+
+  // Add buffer to the bottom
+  for (
+    let columnIndex = 0;
+    columnIndex < updatedVisibleColumns.length;
+    columnIndex++
+  ) {
+    // Determine how many buffers are on the bottom already
+    const reversedUpdatedVisibleColumn = [
+      ...updatedVisibleColumns[columnIndex],
+    ].sort((a, b) => -1);
+    const firstNotEntirelyBelowVisualViewportCount =
+      reversedUpdatedVisibleColumn.findIndex((candidate) => {
+        return candidate.top <= viewportBottom;
+      });
+
+    // -1 indicates that all of the items are entirely after viewportBottom, and
+    // therefore, they're all buffers.
+    //
+    // The only time I've encountered this case is when I've forgotten to set
+    // the window.scrollY in a unit test and the visual viewport corresponding
+    // to the current grid configuration (e.g., assignments to
+    // updatedVisibleColumns vs. bottomInvisibleColumns) is artificially too
+    // high.
+    const currentBuffer =
+      firstNotEntirelyBelowVisualViewportCount === -1
+        ? updatedVisibleColumns[columnIndex].length
+        : firstNotEntirelyBelowVisualViewportCount;
+
+    if (currentBuffer >= buffer) {
+      if (currentBuffer > buffer) {
+        console.warn(
+          `Encountered a currentBuffer (${currentBuffer}) larger than buffer (${buffer}) when adding bottom buffer for columnIndex (${columnIndex}). (If you're running a unit test, this is probably due to not mocking the window.scrollY properly, specifically not setting it high (i.e., closer to the bottom) enough.)`,
+        );
+      }
+      continue;
+    }
+
+    const remainingBuffer = buffer - currentBuffer;
+
+    const toBeMoved = bottomInvisibleColumns[columnIndex].splice(
+      0,
+      Math.min(bottomInvisibleColumns[columnIndex].length, remainingBuffer),
+    );
+    updatedVisibleColumns[columnIndex].push(...toBeMoved);
+  }
 }

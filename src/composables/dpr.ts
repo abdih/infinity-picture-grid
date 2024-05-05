@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, Ref, ref } from "vue";
+import { onMounted, onUnmounted, Ref, ref } from 'vue';
 
 export function useDevicePixelRatio() {
   let remove: null | (() => void) = null;
@@ -13,9 +13,9 @@ export function useDevicePixelRatio() {
 
     const mediaQueryString = `(resolution: ${window.devicePixelRatio}dppx)`;
     const media = matchMedia(mediaQueryString);
-    media.addEventListener("change", updateDevicePixelRatio);
+    media.addEventListener('change', updateDevicePixelRatio);
     remove = () => {
-      media.removeEventListener("change", updateDevicePixelRatio);
+      media.removeEventListener('change', updateDevicePixelRatio);
     };
   };
 

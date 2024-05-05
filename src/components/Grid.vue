@@ -11,6 +11,7 @@ import {
 } from 'vue';
 import { debounce } from 'lodash';
 import {
+  ensureVirtualizationBuffer,
   feedBottomInvisibleFromVisible,
   feedDownFromTopInvisible,
   feedTopInvisibleFromVisible,
@@ -28,6 +29,7 @@ import { computeViewportBottom } from '@/utils/viewport';
 let topInvisibleColumns: Array<Array<GridItemData>> = [];
 let bottomInvisibleColumns: Array<Array<GridItemData>> = [];
 const visibleColumns: Ref<Array<Array<GridItemData>>> = ref([]);
+const VirtualizationBuffer = 3;
 
 const columnWidth: Ref<number | undefined> = ref(undefined);
 const GapAmount = 8;
@@ -98,12 +100,18 @@ async function handleScrollDown(): Promise<void> {
       feedTopInvisibleFromVisible({
         updatedVisibleColumns,
         topInvisibleColumns,
-        visualViewportHeight: visualViewportHeight.value!,
       });
       feedUpFromBottomInvisible({
         updatedVisibleColumns,
         topInvisibleColumns,
         bottomInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
+      });
+      ensureVirtualizationBuffer({
+        updatedVisibleColumns,
+        topInvisibleColumns,
+        bottomInvisibleColumns,
+        buffer: VirtualizationBuffer,
         visualViewportHeight: visualViewportHeight.value!,
       });
 
@@ -157,6 +165,13 @@ async function handleScrollUp(): Promise<void> {
         updatedVisibleColumns,
         topInvisibleColumns,
         bottomInvisibleColumns,
+        visualViewportHeight: visualViewportHeight.value!,
+      });
+      ensureVirtualizationBuffer({
+        updatedVisibleColumns,
+        topInvisibleColumns,
+        bottomInvisibleColumns,
+        buffer: VirtualizationBuffer,
         visualViewportHeight: visualViewportHeight.value!,
       });
 
