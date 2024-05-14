@@ -109,6 +109,7 @@ export async function placeNewImagesWithoutVirtualization({
       top: nextPlacementData.top,
       height,
       src,
+      ...(imageData.isAd ? { adIdentifier: getAdIdentifier(imageData) } : {}),
     });
   }
 }

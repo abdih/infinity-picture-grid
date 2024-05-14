@@ -1,3 +1,5 @@
+import { conductBernoulliTrial } from '@/utils/random';
+
 // Prefixing with "NextBatch" because ImageData seems to be a reserved type.
 export type NextBatchImageData = {
   // The motivation here is to enable responsive images: Enable different
@@ -8,6 +10,7 @@ export type NextBatchImageData = {
   //   https://developer.mozilla.org/en-US/docs/Learn/HTML/Multimedia_and_embedding/Responsive_images
 
   srcs: Map<SupportedImageWidthCssPx, Map<SupportedDpr, Src>>;
+  isAd: boolean;
 };
 
 // The set is to prevent accidental duplication.
@@ -139,6 +142,7 @@ function generateMockData(): Array<NextBatchImageData> {
           ]),
         ],
       ]),
+      isAd: conductBernoulliTrial(1 / 10),
     };
   });
 }
@@ -210,4 +214,9 @@ export function getMatchingSupportedDpr(
   }
 
   return supportedDprFit as SupportedDpr;
+}
+
+export function getAdIdentifier(imageData: NextBatchImageData): Src {
+  // The specific src is arbitrary here.
+  return imageData.srcs.get(256)!.get(1)!;
 }

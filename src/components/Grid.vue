@@ -477,7 +477,8 @@ function ensureUnobservedSubsequentLoading(
         :key="imageData.src"
         v-for="(imageData, imageIndex) in column"
         :src="imageData.src"
-        :imgStyle="computeStyle({ imageData, imageIndex, columnIndex })"
+        :styles="computeStyle({ imageData, imageIndex, columnIndex })"
+        :adIdentifier="imageData.adIdentifier"
       />
     </div>
   </div>
