@@ -269,6 +269,7 @@ const processVisualViewportChanges = async () => {
     previousScrollY = 0;
     scrollHandlingChain = Promise.resolve();
     afterToken.value = undefined;
+    previousAdElementRefByIdentifier = {};
 
     // Initialize further
     visibleColumns.value.push(...blankColumns(columnCount));
@@ -432,6 +433,93 @@ function ensureUnobservedSubsequentLoading(
 }
 // Additional profiling code for subsequent batch loading indicator's seen
 // count (finish)
+
+// Additional profiling code for ads seen fully (start)
+
+const seenAdUrls = new Set<string>();
+
+let previousAdElementRefByIdentifier: Record<string, Element | null>;
+
+const seenAdFullyObserver: IntersectionObserver = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      // TODO: Investigate more closely why the observer callback is initially
+      // called without the image element being substantial. Furthermore,
+      // see if this is a problem.
+      const imageElement = entry.target as HTMLImageElement;
+      const isPrematurelyInvokingObserverCallback =
+        entry.intersectionRect.width === 0 &&
+        entry.intersectionRect.height === 0;
+      if (isPrematurelyInvokingObserverCallback) {
+        return;
+      }
+
+      const fullUrl = new URL(imageElement.src);
+
+      const justBecameFullyVisible =
+        entry.isIntersecting && entry.intersectionRatio === 1;
+      if (justBecameFullyVisible) {
+        // Do whatever
+
+        console.log(
+          'Saw a new ad fully:',
+          `${imageElement.dataset.adIdentifier}`,
+        );
+
+        seenAdUrls.add(fullUrl.pathname);
+
+        seenAdFullyObserver.unobserve(entry.target);
+      }
+    });
+  },
+  {
+    threshold: 1,
+  },
+);
+
+function ensureObserveAd(
+  element: Element | ComponentPublicInstance | null,
+  imageData: GridItemData,
+): void {
+  if (!imageData.adIdentifier) {
+    return;
+  }
+  if (seenAdUrls.has(imageData.adIdentifier)) {
+    return;
+  }
+
+  const previousRef = previousAdElementRefByIdentifier[imageData.adIdentifier];
+
+  const isMounting = !previousRef && !!element;
+
+  const isUnmounting = previousRef && element === null;
+
+  (previousAdElementRefByIdentifier as any)[imageData.adIdentifier] = element;
+
+  if (isMounting) {
+    seenAdFullyObserver.observe(element as any);
+
+    return;
+  }
+
+  if (isUnmounting) {
+    const alreadyHandledUnobserve = seenAdUrls.has(imageData.adIdentifier);
+
+    if (!alreadyHandledUnobserve) {
+      seenAdFullyObserver.unobserve(previousRef!);
+    }
+
+    return;
+  }
+
+  if (previousRef && !!element && previousRef !== element) {
+    console.error(
+      `The ref for the ad ${imageData.adIdentifier} is consecutively non-nullable but not the same. This is problematic because we only observe the element associated with the ad's element ref when the ref just prior was null. We don't observe the element associated with the element ref when the ref just prior was also an element. This error being logged implies the latter case is occurring and that we're potentially losing observability of the ad's visibility change. The approach around the aforementioned observability needs to be re-evaluated.`,
+    );
+  }
+}
+
+// Additional profiling code for ads seen fully (finish)
 </script>
 <template>
   <div
@@ -479,6 +567,7 @@ function ensureUnobservedSubsequentLoading(
         :src="imageData.src"
         :styles="computeStyle({ imageData, imageIndex, columnIndex })"
         :adIdentifier="imageData.adIdentifier"
+        @ref="ensureObserveAd($event, imageData)"
       />
     </div>
   </div>

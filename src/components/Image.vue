@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { ComponentPublicInstance, computed, ref } from 'vue';
 
 export interface Props {
   src: string;
@@ -10,6 +10,10 @@ export interface Props {
   adIdentifier: string | undefined;
 }
 const props = defineProps<Props>();
+
+const emit = defineEmits<{
+  ref: [element: Element | ComponentPublicInstance | null];
+}>();
 
 const isLoading = ref(true);
 
@@ -29,6 +33,16 @@ const imageStyle = computed(() => {
 
   return styles;
 });
+
+const additionalBindings = computed(() => {
+  const toReturn = {} as Record<string, unknown>;
+
+  if (props.adIdentifier) {
+    toReturn['data-ad-identifier'] = props.adIdentifier;
+  }
+
+  return toReturn;
+});
 </script>
 <template>
   <!-- A motivating factor behind there being a container around both the
@@ -45,7 +59,13 @@ const imageStyle = computed(() => {
       type="image"
       color="grey"
     />
-    <img @load="handleImageLoaded" :style="imageStyle" :src="src" />
+    <img
+      @load="handleImageLoaded"
+      :style="imageStyle"
+      :src="src"
+      v-bind="additionalBindings"
+      :ref="(element: Element | ComponentPublicInstance | null) => emit('ref', element)"
+    />
     <h6 class="advertisement" v-if="!isLoading && adIdentifier">
       Advertisement
     </h6>
