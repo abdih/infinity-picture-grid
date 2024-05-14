@@ -20,8 +20,48 @@
       //   proper attribute name-value pairs (e.g., `rel="preload"` and
       //  `as="image").
       //
-      // Note: Profiling to gather some benchmarks on improvement will be done
-      // in the subsequent commit.
+      // ---
+      //
+      // Profiling:
+      //
+      // According to 2 experiments, each with 20 trials measuring the duration
+      // between the time the server received a request for this index.html and
+      // the time at which the application completed constructing the grid
+      // data structures for the initial batch of image data, the latency
+      // improvement is 535.10 ms (or roughly, 55.84%).
+
+      //   Measurements:
+      //
+      //     Experiment 1 (without optimizations):
+      //       - Trials: 954, 968, 948, 963, 943, 1073, 975, 949, 952, 944, 938,
+      //                 952, 956, 952, 944, 951, 959, 943, 948, 953
+      //
+      //       - Average: 958.25
+      //
+      //     Experiment 2 (with optimizations):
+      //       - Trials: 427, 421, 443, 420, 412, 416, 417, 417, 422, 418, 414,
+      //                 419, 417, 422, 426, 420, 424, 434, 422, 452
+      //
+      //       - Average: 423.15
+      //
+      //   Notes:
+      //
+      //     1. Measurements were done on a visual viewport of 1920 x 1080, with
+      //     DPR 2. So, the versions of the images that corresponds with 256 CSS
+      //     pixel-wide slots were downloaded.
+      //
+      //     2. Measurements were done without disabling caching, since this is
+      //     what's normally the case.
+      //
+      //     3. Trials were conducted by using "Empty Cache and Hard Reload".
+      //
+      // Methodology:
+      //
+      // Please refer to the two middleware plugins in vite.config.mts that
+      // modify the Vite dev server: InitialPageRequestMarker and
+      // InitialGridConstructionLatencyMeasurer. Relatedly, please refer to
+      // Grid.vue's invocation of the API call to
+      // http://localhost:3000/measure-initial-grid-construction-latency.
 
       window.initialImageBatch = [
         {

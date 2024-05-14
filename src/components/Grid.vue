@@ -146,6 +146,14 @@ async function handleScrollDown(): Promise<void> {
 
       visibleColumns.value = updatedVisibleColumns;
 
+      fetch('http://localhost:3000/measure-initial-grid-construction-latency', {
+        method: 'POST',
+        body: JSON.stringify({
+          completedInitialImageDataGridConstructionMark: Date.now(),
+        }),
+        headers: { 'Content-Type': 'application/json ' },
+      });
+
       let havePreviouslySetAfterToken = false;
 
       // Setting the afterToken here because if we do it earlier, when the
