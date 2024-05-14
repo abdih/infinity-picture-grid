@@ -43,7 +43,8 @@ const GapAmount = 8;
 
 let previousScrollY: number = 0;
 
-const afterToken: Ref<number | null | undefined> = ref(undefined);
+type AfterTokenServerValue = number | null;
+const afterToken: Ref<AfterTokenServerValue | undefined> = ref(undefined);
 
 let scrollHandlingChain: Promise<void>;
 
@@ -60,6 +61,15 @@ function handleScroll(_event: Event): void {
 }
 
 const debouncedHandleScroll = debounce(handleScroll, 50);
+
+declare global {
+  interface Window {
+    initialImageBatch?: Array<NextBatchImageData>;
+    afterToken?: AfterTokenServerValue;
+  }
+}
+
+let haveUsedInitialRenderingOptimization = false;
 
 onUnmounted(() => {
   removeEventListener('scroll', debouncedHandleScroll);
@@ -82,14 +92,23 @@ async function handleScrollDown(): Promise<void> {
         | undefined
         | Awaited<ReturnType<typeof getNextBatch>>;
 
-      const shouldPlaceImages = afterToken.value !== null;
+      const canUseInitialRenderingOptimization =
+        !haveUsedInitialRenderingOptimization && !!window.initialImageBatch;
+
+      const shouldPlaceImages =
+        canUseInitialRenderingOptimization || afterToken.value !== null;
+
       if (shouldPlaceImages) {
         let imagesData: Array<NextBatchImageData>;
+        if (canUseInitialRenderingOptimization) {
+          imagesData = window.initialImageBatch!;
+          haveUsedInitialRenderingOptimization = true;
+        } else {
+          // I.e., afterToken.value !== null
+          nextBatchResponseDto = await getNextBatch(afterToken.value!);
 
-        // I.e., afterToken.value !== null
-        nextBatchResponseDto = await getNextBatch(afterToken.value!);
-
-        imagesData = nextBatchResponseDto.data;
+          imagesData = nextBatchResponseDto.data;
+        }
 
         // Add the images to the grid
         await placeNewImagesWithoutVirtualization({
@@ -126,12 +145,27 @@ async function handleScrollDown(): Promise<void> {
       });
 
       visibleColumns.value = updatedVisibleColumns;
+
+      let havePreviouslySetAfterToken = false;
+
       // Setting the afterToken here because if we do it earlier, when the
       // afterToken is such that it indicates there's no more image for the
       // server to provide, that message is shown at the bottom and doesn't
       // flash before the penultimate batch gets appended.
       if (nextBatchResponseDto) {
         afterToken.value = nextBatchResponseDto.afterToken;
+        havePreviouslySetAfterToken = true;
+      }
+
+      // Not using else-if and using havePreviouslySetAfterToken to avoid
+      // potentially suppressing a bug.
+      if (canUseInitialRenderingOptimization) {
+        if (havePreviouslySetAfterToken) {
+          console.error(
+            'Setting afterToken from index.html after having set it from the response DTO.',
+          );
+        }
+        afterToken.value = window.afterToken!;
       }
 
       resolve();
@@ -367,6 +401,7 @@ function setupWatchEnsureVisibleColumnsFilled() {
         !hasServerStatedNoMoreSubsequentBatches.value
       ) {
         handleScrollDown();
+        return;
       }
     },
   );

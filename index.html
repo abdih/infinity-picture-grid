@@ -1,15 +1,423 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Infinity Grid</title>
-</head>
+    <script type="module">
+      // Motivation:
+      //
+      // Below's a mock of the server helping the client reduce the latency
+      // behind the initial rendering of the grid. In particular, it's mocking
+      // the following things the server can do:
+      //
+      //   1. Provide the initial batch of image data alongside this
+      //   index.html to save the client one API call.
+      //
+      //   2. Give a headsup to the browser to download appropriate
+      //   (i.e., matching the current viewport's dimensions) images and store
+      //   them before they're needed. Do so by leveraging link tags with the
+      //   proper attribute name-value pairs (e.g., `rel="preload"` and
+      //  `as="image").
+      //
+      // Note: Profiling to gather some benchmarks on improvement will be done
+      // in the subsequent commit.
 
-<body>
+      window.initialImageBatch = [
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/apples.jpg'],
+                [2, '/assets/256/2x/apples.jpg'],
+                [3, '/assets/256/3x/apples.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/apples.jpg'],
+                [2, '/assets/512/2x/apples.jpg'],
+                [3, '/assets/512/3x/apples.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/cathedral.jpeg'],
+                [2, '/assets/256/2x/cathedral.jpeg'],
+                [3, '/assets/256/3x/cathedral.jpeg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/cathedral.jpeg'],
+                [2, '/assets/512/2x/cathedral.jpeg'],
+                [3, '/assets/512/3x/cathedral.jpeg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/mountain 2.jpg'],
+                [2, '/assets/256/2x/mountain 2.jpg'],
+                [3, '/assets/256/3x/mountain 2.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/mountain 2.jpg'],
+                [2, '/assets/512/2x/mountain 2.jpg'],
+                [3, '/assets/512/3x/mountain 2.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/sunflowers.jpg'],
+                [2, '/assets/256/2x/sunflowers.jpg'],
+                [3, '/assets/256/3x/sunflowers.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/sunflowers.jpg'],
+                [2, '/assets/512/2x/sunflowers.jpg'],
+                [3, '/assets/512/3x/sunflowers.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/vase-flowers.jpg'],
+                [2, '/assets/256/2x/vase-flowers.jpg'],
+                [3, '/assets/256/3x/vase-flowers.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/vase-flowers.jpg'],
+                [2, '/assets/512/2x/vase-flowers.jpg'],
+                [3, '/assets/512/3x/vase-flowers.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/driving-dirt-road.jpg'],
+                [2, '/assets/256/2x/driving-dirt-road.jpg'],
+                [3, '/assets/256/3x/driving-dirt-road.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/driving-dirt-road.jpg'],
+                [2, '/assets/512/2x/driving-dirt-road.jpg'],
+                [3, '/assets/512/3x/driving-dirt-road.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/elbphilharmonie-concert-hall.jpg'],
+                [2, '/assets/256/2x/elbphilharmonie-concert-hall.jpg'],
+                [3, '/assets/256/3x/elbphilharmonie-concert-hall.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/elbphilharmonie-concert-hall.jpg'],
+                [2, '/assets/512/2x/elbphilharmonie-concert-hall.jpg'],
+                [3, '/assets/512/3x/elbphilharmonie-concert-hall.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/las-setas-de-sevilla.jpg'],
+                [2, '/assets/256/2x/las-setas-de-sevilla.jpg'],
+                [3, '/assets/256/3x/las-setas-de-sevilla.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/las-setas-de-sevilla.jpg'],
+                [2, '/assets/512/2x/las-setas-de-sevilla.jpg'],
+                [3, '/assets/512/3x/las-setas-de-sevilla.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/jellyfish.jpg'],
+                [2, '/assets/256/2x/jellyfish.jpg'],
+                [3, '/assets/256/3x/jellyfish.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/jellyfish.jpg'],
+                [2, '/assets/512/2x/jellyfish.jpg'],
+                [3, '/assets/512/3x/jellyfish.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/astronomy.jpg'],
+                [2, '/assets/256/2x/astronomy.jpg'],
+                [3, '/assets/256/3x/astronomy.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/astronomy.jpg'],
+                [2, '/assets/512/2x/astronomy.jpg'],
+                [3, '/assets/512/3x/astronomy.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+        {
+          srcs: new Map([
+            [
+              256,
+              new Map([
+                [1, '/assets/256/1x/ai-generated-luxury-hotel.jpg'],
+                [2, '/assets/256/2x/ai-generated-luxury-hotel.jpg'],
+                [3, '/assets/256/3x/ai-generated-luxury-hotel.jpg'],
+              ]),
+            ],
+            [
+              512,
+              new Map([
+                [1, '/assets/512/1x/ai-generated-luxury-hotel.jpg'],
+                [2, '/assets/512/2x/ai-generated-luxury-hotel.jpg'],
+                [3, '/assets/512/3x/ai-generated-luxury-hotel.jpg'],
+              ]),
+            ],
+          ]),
+          isAd: false,
+        },
+      ];
+      window.afterToken = window.initialImageBatch?.length;
+    </script>
+
+    <!-- Generated with the help of scripts/initial-render-optimization.ts -->
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/apples.jpg 1x, /assets/256/2x/apples.jpg 2x, /assets/256/3x/apples.jpg 3x"
+      href="/assets/256/3x/apples.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/apples.jpg 1x, /assets/512/2x/apples.jpg 2x, /assets/512/3x/apples.jpg 3x"
+      href="/assets/512/3x/apples.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/cathedral.jpeg 1x, /assets/256/2x/cathedral.jpeg 2x, /assets/256/3x/cathedral.jpeg 3x"
+      href="/assets/256/3x/cathedral.jpeg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/cathedral.jpeg 1x, /assets/512/2x/cathedral.jpeg 2x, /assets/512/3x/cathedral.jpeg 3x"
+      href="/assets/512/3x/cathedral.jpeg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/mountain 2.jpg 1x, /assets/256/2x/mountain 2.jpg 2x, /assets/256/3x/mountain 2.jpg 3x"
+      href="/assets/256/3x/mountain 2.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/mountain 2.jpg 1x, /assets/512/2x/mountain 2.jpg 2x, /assets/512/3x/mountain 2.jpg 3x"
+      href="/assets/512/3x/mountain 2.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/sunflowers.jpg 1x, /assets/256/2x/sunflowers.jpg 2x, /assets/256/3x/sunflowers.jpg 3x"
+      href="/assets/256/3x/sunflowers.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/sunflowers.jpg 1x, /assets/512/2x/sunflowers.jpg 2x, /assets/512/3x/sunflowers.jpg 3x"
+      href="/assets/512/3x/sunflowers.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/vase-flowers.jpg 1x, /assets/256/2x/vase-flowers.jpg 2x, /assets/256/3x/vase-flowers.jpg 3x"
+      href="/assets/256/3x/vase-flowers.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/vase-flowers.jpg 1x, /assets/512/2x/vase-flowers.jpg 2x, /assets/512/3x/vase-flowers.jpg 3x"
+      href="/assets/512/3x/vase-flowers.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/driving-dirt-road.jpg 1x, /assets/256/2x/driving-dirt-road.jpg 2x, /assets/256/3x/driving-dirt-road.jpg 3x"
+      href="/assets/256/3x/driving-dirt-road.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/driving-dirt-road.jpg 1x, /assets/512/2x/driving-dirt-road.jpg 2x, /assets/512/3x/driving-dirt-road.jpg 3x"
+      href="/assets/512/3x/driving-dirt-road.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/elbphilharmonie-concert-hall.jpg 1x, /assets/256/2x/elbphilharmonie-concert-hall.jpg 2x, /assets/256/3x/elbphilharmonie-concert-hall.jpg 3x"
+      href="/assets/256/3x/elbphilharmonie-concert-hall.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/elbphilharmonie-concert-hall.jpg 1x, /assets/512/2x/elbphilharmonie-concert-hall.jpg 2x, /assets/512/3x/elbphilharmonie-concert-hall.jpg 3x"
+      href="/assets/512/3x/elbphilharmonie-concert-hall.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/las-setas-de-sevilla.jpg 1x, /assets/256/2x/las-setas-de-sevilla.jpg 2x, /assets/256/3x/las-setas-de-sevilla.jpg 3x"
+      href="/assets/256/3x/las-setas-de-sevilla.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/las-setas-de-sevilla.jpg 1x, /assets/512/2x/las-setas-de-sevilla.jpg 2x, /assets/512/3x/las-setas-de-sevilla.jpg 3x"
+      href="/assets/512/3x/las-setas-de-sevilla.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/jellyfish.jpg 1x, /assets/256/2x/jellyfish.jpg 2x, /assets/256/3x/jellyfish.jpg 3x"
+      href="/assets/256/3x/jellyfish.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/jellyfish.jpg 1x, /assets/512/2x/jellyfish.jpg 2x, /assets/512/3x/jellyfish.jpg 3x"
+      href="/assets/512/3x/jellyfish.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/astronomy.jpg 1x, /assets/256/2x/astronomy.jpg 2x, /assets/256/3x/astronomy.jpg 3x"
+      href="/assets/256/3x/astronomy.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/astronomy.jpg 1x, /assets/512/2x/astronomy.jpg 2x, /assets/512/3x/astronomy.jpg 3x"
+      href="/assets/512/3x/astronomy.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/256/1x/ai-generated-luxury-hotel.jpg 1x, /assets/256/2x/ai-generated-luxury-hotel.jpg 2x, /assets/256/3x/ai-generated-luxury-hotel.jpg 3x"
+      href="/assets/256/3x/ai-generated-luxury-hotel.jpg"
+      media="(width < 1921px)"
+      as="image"
+    />
+    <link
+      rel="preload"
+      imagesrcset="/assets/512/1x/ai-generated-luxury-hotel.jpg 1x, /assets/512/2x/ai-generated-luxury-hotel.jpg 2x, /assets/512/3x/ai-generated-luxury-hotel.jpg 3x"
+      href="/assets/512/3x/ai-generated-luxury-hotel.jpg"
+      media="(1921px <= width)"
+      as="image"
+    />
+  </head>
+
+  <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
-</body>
-
+  </body>
 </html>

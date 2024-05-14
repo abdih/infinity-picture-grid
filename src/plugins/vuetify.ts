@@ -11,6 +11,13 @@ import 'vuetify/styles';
 // Composables
 import { createVuetify } from 'vuetify';
 
+export const thresholds = {
+  sm: 0,
+  md: 391,
+  lg: 1921,
+  xl: Infinity,
+};
+
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
   theme: {
@@ -28,11 +35,6 @@ export default createVuetify({
     // applied unless we specify values, the following configuration seems
     // correct:
     mobileBreakpoint: 'md',
-    thresholds: {
-      sm: 0,
-      md: 391,
-      lg: 1921,
-      xl: Infinity,
-    },
+    thresholds,
   },
 });
