@@ -90,6 +90,19 @@ function generateMockData(): Array<NextBatchImageData> {
     'mountain-3.jpg',
     'mountain.jpg',
     'music.jpg',
+    'negative-castle.jpg',
+    'paper-boat.jpg',
+    'parrot.jpg',
+    'pastries.jpg',
+    'peninsula.jpeg',
+    'people.jpg',
+    'picnic.jpg',
+    'post-office.jpeg',
+    'puzzle.jpg',
+    'raindrop-leaf.jpg',
+    'sand-next-to-water.jpg',
+    'sea-ship-wreck.jpg',
+    'snow-mountains.jpeg',
   ];
 
   return fileNames.map((fileName) => {
