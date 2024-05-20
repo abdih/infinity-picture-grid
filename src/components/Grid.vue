@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { clone2DArrayNaive } from '@/utils/array';
 import {
+  ComponentPublicInstance,
   computed,
   nextTick,
   onUnmounted,
@@ -12,6 +13,7 @@ import {
 import { debounce } from 'lodash';
 import {
   ensureVirtualizationBuffer,
+  blankColumns,
   feedBottomInvisibleFromVisible,
   feedDownFromTopInvisible,
   feedTopInvisibleFromVisible,
@@ -21,7 +23,12 @@ import {
   placeNewImagesWithoutVirtualization,
   updateGridColumnDimensions,
 } from '@/utils/grid';
-import { getNextBatch, NextBatchImageData } from '@/api-clients/image';
+import {
+  getMatchingSupportedCssPixelWidth,
+  getMatchingSupportedDpr,
+  getNextBatch,
+  NextBatchImageData,
+} from '@/api-clients/image';
 import { useDevicePixelRatio } from '@/composables/dpr';
 import { useDisplay } from 'vuetify';
 import { computeViewportBottom } from '@/utils/viewport';
@@ -56,6 +63,7 @@ const debouncedHandleScroll = debounce(handleScroll, 50);
 
 onUnmounted(() => {
   removeEventListener('scroll', debouncedHandleScroll);
+  subsequentLoadingIndicatorObserver.disconnect();
 });
 
 function addScrollHandling(initiateNewHandling: () => Promise<void>) {
@@ -90,6 +98,8 @@ async function handleScrollDown(): Promise<void> {
           imagesData,
           GapAmount,
           columnWidth: columnWidth.value!,
+          matchingSupportedCssPixelWidth: matchingSupportedCssPixelWidth.value,
+          matchingSupportedDpr: matchingSupportedDpr.value,
         });
       }
 
@@ -215,15 +225,15 @@ function computeStyle({
   return style;
 }
 
-// Page-level loading indicator-related code (Start)
+// Page-level loading indicator-related code (start)
 const haveProcessedInitialRetrieval: Ref<boolean> = ref(false);
 
 const hasServerStatedNoMoreSubsequentBatches = computed(() => {
   return afterToken.value === null;
 });
-// Page-level loading indicator-related code (Finish)
+// Page-level loading indicator-related code (finish)
 
-// Additional code for handling page resizing (Start)
+// Additional code for handling page resizing (start)
 const {
   name: breakpointName,
   height: visualViewportHeight,
@@ -261,10 +271,9 @@ const processVisualViewportChanges = async () => {
     afterToken.value = undefined;
 
     // Initialize further
-    const blankColumns = () => Array.from(Array(columnCount)).map(() => []);
-    visibleColumns.value.push(...blankColumns());
-    topInvisibleColumns.push(...blankColumns());
-    bottomInvisibleColumns.push(...blankColumns());
+    visibleColumns.value.push(...blankColumns(columnCount));
+    topInvisibleColumns.push(...blankColumns(columnCount));
+    bottomInvisibleColumns.push(...blankColumns(columnCount));
 
     setupWatchEnsureVisibleColumnsFilled();
 
@@ -342,7 +351,7 @@ function setupWatchEnsureVisibleColumnsFilled() {
 
         const canColumnHandleOneMoreItem =
           computeViewportBottom(visualViewportHeight.value!) -
-            (column.at(-1)!.top + column.at(-1)!.height) >
+            itemBottom(column.at(-1)!) >
           GapAmount;
 
         if (canColumnHandleOneMoreItem) {
@@ -361,7 +370,68 @@ function setupWatchEnsureVisibleColumnsFilled() {
     },
   );
 }
-// Additional code for handling page resizing (Finish)
+// Additional code for handling page resizing (finish)
+
+// Additional code for ensuring responsive images (start)
+
+const matchingSupportedCssPixelWidth = computed(() => {
+  return getMatchingSupportedCssPixelWidth(columnWidth.value);
+});
+
+const matchingSupportedDpr = computed(() => {
+  return getMatchingSupportedDpr(devicePixelRatio.value);
+});
+
+// Additional code for ensuring responsive images (finish)
+
+// Additional profiling code for subsequent batch loading indicator's seen
+// count (start)
+
+let seenSubsequentLoadingCount = 0;
+let previousLoadingIndicatorIsIntersecting = false;
+let haveObservedLoading = false;
+
+const subsequentLoadingIndicatorObserver: IntersectionObserver =
+  new IntersectionObserver((entries: Array<IntersectionObserverEntry>) => {
+    if (
+      entries[0]?.isIntersecting &&
+      previousLoadingIndicatorIsIntersecting === false
+    ) {
+      seenSubsequentLoadingCount += 1;
+      console.log(
+        `seenLoadingIndicatorCount incremented to ${seenSubsequentLoadingCount}`,
+      );
+    }
+
+    previousLoadingIndicatorIsIntersecting = entries[0]?.isIntersecting;
+  });
+
+async function ensureObservedSubsequentLoading(
+  element: Element | ComponentPublicInstance | null,
+) {
+  if (!haveObservedLoading && element) {
+    // This addresses the problem of the count being less than what it should
+    // be by at least 1 in the case that the initial retrieval doesn't entirely
+    // fill the page.
+    await nextTick();
+    subsequentLoadingIndicatorObserver.observe(
+      (element as ComponentPublicInstance).$el as Element,
+    );
+    haveObservedLoading = true;
+  }
+}
+
+let haveUnobservedLoading = false;
+
+function ensureUnobservedSubsequentLoading(
+  element: Element | ComponentPublicInstance | null,
+): void {
+  if (!haveUnobservedLoading && element) {
+    subsequentLoadingIndicatorObserver.disconnect();
+  }
+}
+// Additional profiling code for subsequent batch loading indicator's seen
+// count (finish)
 </script>
 <template>
   <div
@@ -372,6 +442,37 @@ function setupWatchEnsureVisibleColumnsFilled() {
       v-for="(column, columnIndex) in visibleColumns"
       :style="`flex: 0 0 ${columnWidth}px; row-gap: ${GapAmount}px; display: flex; flex-direction: column`"
     >
+      <!-- Ended up not using the approach of <picture> + <source> + <img>
+        because for unknown reasons, it didn't seem to respond to changes in
+        the DPR as a result of zooming in.
+
+        Also, not relying on srcset and instead just on src seems to lead
+        to easier verification of the embedded image URL when inspecting in
+        DevTools.
+
+        For posterity, leaving the alternative implementation as a comment,
+        which is slightly outdated since it's before the using the custom
+        Image component, introduced as part of an effort to clean up commits
+        and publish them.:
+
+        <picture>
+          <source
+            :key="srcSet"
+            v-for="(
+              { media, srcSet }
+            ) in imageData.sourceData"
+            :srcset="srcSet"
+            :media="media"
+          />
+          <img
+            :src="imageData.src"
+            :alt="imageData.src"
+            :style="computeStyle({ imageData, imageIndex, columnIndex })"
+          "
+          />
+        </picture>
+
+      -->
       <Image
         :key="imageData.src"
         v-for="(imageData, imageIndex) in column"
@@ -395,8 +496,11 @@ function setupWatchEnsureVisibleColumnsFilled() {
         v-if="!hasServerStatedNoMoreSubsequentBatches"
         indeterminate
         width="1"
+        :ref="ensureObservedSubsequentLoading"
       />
-      <span v-else>There are no more images.</span>
+      <span v-else :ref="ensureUnobservedSubsequentLoading">
+        There are no more images.
+      </span>
     </div>
   </template>
   <template v-else>

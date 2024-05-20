@@ -1,4 +1,9 @@
-import { NextBatchImageData } from '@/api-clients/image';
+import {
+  getAdIdentifier,
+  NextBatchImageData,
+  SupportedDpr,
+  SupportedImageWidthCssPx,
+} from '@/api-clients/image';
 import { getImageHeightScaled } from '@/utils/image';
 import { computeViewportBottom, isWithinViewport } from '@/utils/viewport';
 import { Ref } from 'vue';
@@ -8,6 +13,7 @@ export interface GridItemData {
   top: number;
   src: string;
   height: number;
+  adIdentifier?: string;
 }
 
 /**
@@ -57,13 +63,27 @@ export async function placeNewImagesWithoutVirtualization({
   visibleColumns,
   GapAmount,
   columnWidth,
+  matchingSupportedCssPixelWidth,
+  matchingSupportedDpr,
 }: {
   imagesData: Array<NextBatchImageData>;
   bottomInvisibleColumns: Array<Array<GridItemData>>;
   visibleColumns: Array<Array<GridItemData>>;
   GapAmount: number;
   columnWidth: number;
+  matchingSupportedCssPixelWidth: SupportedImageWidthCssPx | null;
+  matchingSupportedDpr: SupportedDpr | null;
 }): Promise<void> {
+  if (
+    matchingSupportedCssPixelWidth === null ||
+    matchingSupportedDpr === null
+  ) {
+    console.error(
+      `placeNewImagesWithoutVirtualization is unexpectedly called with matchingSupportedCssPixelWidth = ${matchingSupportedCssPixelWidth} and matchingSupportedDpr = ${matchingSupportedDpr}`,
+    );
+    return;
+  }
+
   for (const imageData of imagesData) {
     const nextPlacementData = findNextPlacementData({
       bottomInvisibleColumns,
@@ -71,12 +91,9 @@ export async function placeNewImagesWithoutVirtualization({
       GapAmount,
     });
 
-    // Using abstraction of imageData instead of something as simple as "url",
-    // for instance, because in upcoming PRs, we'll retrieve more complex
-    // DTOs from the API endpoint invoker.
-    //
-    // Unsure why TypeScript's not picking up that it's a string.
-    const src = imageData as unknown as string;
+    const src = imageData.srcs
+      .get(matchingSupportedCssPixelWidth!)!
+      .get(matchingSupportedDpr!)!;
 
     // "height" is useful for handling virtualization of scrolling up and also
     // for getting the next image's placement location.
@@ -539,4 +556,10 @@ export function ensureVirtualizationBuffer({
     );
     updatedVisibleColumns[columnIndex].push(...toBeMoved);
   }
+}
+
+export function blankColumns<T extends unknown = GridItemData>(
+  columnCount: number,
+): Array<Array<T>> {
+  return Array.from(Array(columnCount)).map(() => []);
 }
