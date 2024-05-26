@@ -1,6 +1,10 @@
 const images = [
   { identifier: 'ai-generated-lady', fileName: 'ai-generated-lady.jpg' },
   {
+    identifier: 'ai-generated-snow-leopard',
+    fileName: 'ai-generated-snow-leopard.png',
+  },
+  {
     identifier: 'ai-generated-luxury-hotel',
     fileName: 'ai-generated-luxury-hotel.jpg',
   },
