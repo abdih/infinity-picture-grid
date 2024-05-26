@@ -24,6 +24,10 @@ const images = [
     fileName: 'drinking-glasses.jpg',
   },
   {
+    identifier: 'tree',
+    fileName: 'tree.jpg',
+  },
+  {
     identifier: 'apples',
     fileName: 'apples.jpg',
   },
@@ -76,6 +80,10 @@ const images = [
     fileName: 'big-pipes-side-of-building.jpg',
   },
   {
+    identifier: 'negative-castle',
+    fileName: 'negative-castle.jpg',
+  },
+  {
     identifier: 'sunflowers',
     fileName: 'sunflowers.jpg',
   },
@@ -102,6 +110,10 @@ const images = [
     fileName: 'vase-flowers.jpg',
   },
   { identifier: 'adult-child-stairs', fileName: 'adult-child-stairs.jpg' },
+  {
+    identifier: 'charles-v-circular-courtyard',
+    fileName: 'charles-v-circular-courtyard.jpg',
+  },
   { identifier: 'raindrop-leaf', fileName: 'raindrop-leaf.jpg' },
   { identifier: 'white-sand', fileName: 'white-sand.jpg' },
   { identifier: 'sea-ship-wreck', fileName: 'sea-ship-wreck.jpg' },
