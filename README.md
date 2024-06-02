@@ -1,3 +1,33 @@
+# How to run locally
+
+Below are my versions for Yarn, Node, and npm:
+
+- Yarn: 1.22.18
+- Node: 20.9.0
+- npm: 10.1.0
+
+Install npm dependencies by issuing
+
+```zsh
+$ yarn
+```
+
+#### Running The Application
+
+To run the application, issue the following:
+
+```zsh
+$ yarn dev
+```
+
+#### Running The Unit Tests
+
+To run the unit tests, execute the following
+
+```zsh
+$ yarn test
+```
+
 # Requirements
 
 - As a user, I expect the grid to accommodate different visual viewport widths
