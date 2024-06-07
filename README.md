@@ -1,3 +1,9 @@
+# Presentation
+
+Please click the below thumbnail image (or alternative text in the case there are problems downloading the image) to navigate to the YouTube presentation. (This is necessary because at this time, GitHub doesn't allow for directly embedding a YouTube video.)
+
+[![Presentation Thumbnail](https://i9.ytimg.com/vi_webp/H9MoZ52x2Lk/mq2.webp?sqp=CIipibMG-oaymwEmCMACELQB8quKqQMa8AEB-AH-CYAC0AWKAgwIABABGHIgXyhGMA8=&rs=AOn4CLAVPKLITfolJpEqm7xR1TksPD6bnA)](https://youtu.be/H9MoZ52x2Lk)
+
 # How to run locally
 
 Below are my versions for Yarn, Node, and npm:
